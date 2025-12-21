@@ -1,4 +1,2 @@
 fastapi
 uvicorn[standard]
-sqlalchemy>=2.0
-python-dotenv
