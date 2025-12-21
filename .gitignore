@@ -1,3 +1,5 @@
+# SQLite
+*.db
 # Python
 __pycache__/
 *.pyc
