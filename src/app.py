@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request
-from src.database import init_db
-from src.routers.users import router as users_router
+from database import init_db
+from routers.users import router as users_router
 import logging
 import time
 

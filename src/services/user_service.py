@@ -1,5 +1,5 @@
-from src.schemas.user import UserCreate, UserUpdate
-from src.repositories import user_repository
+from schemas.user import UserCreate, UserUpdate
+from repositories import user_repository
 
 def list_users():
     return user_repository.get_all_users()
