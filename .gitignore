@@ -1,0 +1,25 @@
+# Virtualenv
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Logs / env
+*.log
+.env
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local data
+*.db
+
+# Node
+node_modules/
+
