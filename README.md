@@ -1,11 +1,16 @@
-## Installation & Run (WSL / Linux)
+## Server Configuration
 
-```bash
-git clone https://github.com/maciej80RATAJ800/moj_pro_api.git
-cd moj_pro_api
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-uvicorn src.app:app --reload
+Development:
+Uvicorn (with --reload)
 
-# test push
+Production (Docker):
+Gunicorn with Uvicorn workers
+## Server Configuration
+
+Development:
+Uvicorn (with --reload)
+
+Production (Docker):
+Gunicorn with Uvicorn workers
+
+
