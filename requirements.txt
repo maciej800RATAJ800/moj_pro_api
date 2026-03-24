@@ -5,5 +5,5 @@ python-jose[cryptography]
 passlib[bcrypt]
 bcrypt
 python_multipart
-
+redis
 

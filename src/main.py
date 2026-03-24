@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer,OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt
 
-from src.models.user import LoginRequest, Token
+from src.models.user import Token
 from src.services.auth_service import (
     create_access_token,
     create_refresh_token,
@@ -11,18 +11,20 @@ from src.services.auth_service import (
     ALGORITHM
 )
 
+# 🔴 REDIS
+from src.services.redis_service import redis_client
+
 app = FastAPI(title="My API")
 
-# ======================================================
+# =====================================================
 # OAuth2 (dla Swagger Authorize)
-# ======================================================
+# =====================================================
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-
-# ======================================================
+# =====================================================
 # GET CURRENT USER (weryfikacja access tokena)
-# ======================================================
+# =====================================================
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
@@ -43,18 +45,28 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
 
-# ======================================================
+# =====================================================
 # ROOT
-# ======================================================
+# =====================================================
 
 @app.get("/")
 def root():
     return {"status": "ok"}
 
 
-# ======================================================
+# =====================================================
+# CACHE (REDIS TEST)
+# =====================================================
+
+@app.get("/cache")
+def cache_test():
+    count = redis_client.incr("hits")
+    return {"hits": count}
+
+
+# =====================================================
 # USERS (zabezpieczony endpoint)
-# ======================================================
+# =====================================================
 
 @app.get("/users")
 def users(current_user: str = Depends(get_current_user)):
@@ -64,9 +76,9 @@ def users(current_user: str = Depends(get_current_user)):
     }
 
 
-# ======================================================
+# =====================================================
 # LOGIN (JWT)
-# ======================================================
+# =====================================================
 
 @app.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -85,9 +97,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     }
 
 
-# ======================================================
+# =====================================================
 # REFRESH TOKEN
-# ======================================================
+# =====================================================
 
 @app.post("/refresh")
 def refresh_token(refresh_token: str):
