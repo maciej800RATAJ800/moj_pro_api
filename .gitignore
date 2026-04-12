@@ -33,6 +33,5 @@ build/
 dist/
 *.egg-info/
 
-# Twoje folderry
-pisma/
-wynik/
+# Twoje plik
+results/
