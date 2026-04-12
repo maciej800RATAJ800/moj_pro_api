@@ -1,115 +1,112 @@
-from fastapi import APIRouter, HTTPException, Query
-from src.models.user import User, UserUpdate, UserResponse
-from src.models.sort_enums import SortBy, SortDir
-from src.database import (
-    get_all_users,
-    get_user_by_id,
-    add_user,
-    update_user,
-    delete_user,
-    query_users,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+
+from src.database import get_db
+from src.models.user import UserModel 
+from src.schemas.user import UserCreate, UserUpdate, UserResponse, UserLogin
+from src.schemas.token import Token
+from src.services.auth_service import (hash_password, verify_password, create_access_token, create_refresh_token)
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.get("/query")
-def get_filtered_users(
-    page: int = Query(1),
-    limit: int = Query(5),
-    sort_by: SortBy = Query(SortBy.id),          # ENUM!
-    sort_dir: SortDir = Query(SortDir.ASC),      # ENUM!
-    min_age: int | None = Query(None),
-    max_age: int | None = Query(None),
-):
+# 🔹 GET ALL
+@router.get("/",
+response_model=list[UserResponse])
+def get_users(
+    skip: int = 0, limit: int = 10, sort_by: str = Query("id"), order: str = Query("asc"), db: Session = Depends(get_db)
+    ):
+    query = db.query(UserModel)
 
-    offset = (page - 1) * limit
+# Sorting Logic
 
-    users = query_users(
-        limit,
-        offset,
-        sort_by.value,
-        sort_dir.value,
-        min_age,
-        max_age
-    )
+    if sort_by in ["id", "name", "age"]:
+        column = getattr(UserModel, sort_by)
+        if order == "desc":
+            query = query.order_by(column.desc())
+        else:
+            query = query.order_by(column.asc())
 
-    return {
-        "page": page,
-        "limit": limit,
-        "sort_by": sort_by,
-        "sort_dir": sort_dir,
-        "filters": {
-            "min_age": min_age,
-            "max_age": max_age,
-        },
-        "count": (users),
-        "results": users
-    }
+# PAGINATION LOGIC            
+            query = query.offset(skip).limit(limit)
 
+    return query.all()
 
+@router.post("/register")
+def register(user: UserCreate, db: Session = Depends(get_db)):
 
-# ----------------------------------------------------------
-# GET /users/list
-# ----------------------------------------------------------
-@router.get("/list")
-def get_user_list():
-    return get_all_users()
+    # Check if user already exists
+    existing_user = db.query(UserModel).filter(UserModel.name == user.name).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
 
-# ----------------------------------------------------------
-# POST /users/add
-# ----------------------------------------------------------
-@router.post("/add")
-def create_user(payload: User):
-    new_id = add_user(payload.name, payload.age)
-    return {
-        "message": "User added",
-        "id": new_id
-    }
+    # hash password and create user
+    hashed_password = hash_password(user.password)
+    
+    # Create user instance
+    new_user = UserModel(name=user.name, age=user.age, password=hashed_password)
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "User created successfully"}
 
-# ----------------------------------------------------------
-# PUT /users/update/{user_id}
-# ----------------------------------------------------------
-@router.put("/update/{user_id}")
-def update_user_data(user_id: int, payload: UserUpdate):
-    user_exists = get_user_by_id(user_id)
-    if not user_exists:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    name = payload.name if payload.name is not None else user_exists["name"]
-    age = payload.age if payload.age is not None else user_exists["age"]
-
-    updated = update_user(user_id, name, age)
-    if not updated:
-        raise HTTPException(status_code=400, detail="Update failed")
-
-    return {
-        "message": "User updated",
-        "id": user_id
-    }
-
-
-# ----------------------------------------------------------
-# DELETE /users/delete/{user_id}
-# ----------------------------------------------------------
-@router.delete("/delete/{user_id}")
-def delete_user_record(user_id: int):
-    user_exists = get_user_by_id(user_id)
-    if not user_exists:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    deleted = delete_user(user_id)
-    if not deleted:
-        raise HTTPException(status_code=400, detail="Delete failed")
-
-    return {"message": "User deleted"}
-
-# ----------------------------------------------------------
-# GET /users/{user_id}
-# ----------------------------------------------------------
-
-@router.get("/{user_id}")
-def get_single_user(user_id: int):
-    user = get_user_by_id(user_id)
+# 🔹 GET BY ID
+@router.get("/{user_id}", 
+            response_model=UserResponse)
+def get_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+# 🔹 UPDATE
+@router.put("/{user_id}", 
+response_model=UserResponse)
+def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
+    db_user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+    if not db_user:
+     raise HTTPException(status_code=404, detail="User not found")
+
+    if user.name is not None: 
+        db_user.name = user.name
+    if user.age is not None:
+        db_user.age = user.age
+    if user.password is not None:
+        db_user.password = hash_password(user.password)
+
+    db.commit()
+    db.refresh(db_user)
+
+    return db_user
+
+
+# 🔹 DELETE
+@router.delete("/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    user = db.query(UserModel).filter(UserModel.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(user)
+    db.commit()
+
+    return {"message": "User deleted"}
+
+#   Login
+@router.post("/login", response_model=Token)
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    db_user = db.query(UserModel).filter(UserModel.name == user.name).first()
+
+    if not db_user or not verify_password(user.password, db_user.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    access_token = create_access_token(data={"sub": str(db_user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(db_user.id)})
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }

@@ -1,37 +1,16 @@
 from fastapi import FastAPI
-from src.middleware.metrics import metrics_middleware, request_count, request_duration
-from src.database import init_db
+from src.routers.pdf import router as pdf_router
 from src.routers.users import router as users_router
-import logging
+from src.database import Base, engine
+from src.models.user import User #WAŻNE (rejestracja modelu)
 
-# LOGGING
-logging.basicConfig(
-    filename="api.log",
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
+app = FastAPI(title="My API")
 
-# APP
-app = FastAPI()
+# tworzenie tabel przy starcie aplikacji
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
 
-# INIT DB
-init_db(load_json_if_empty=False)
-
-# MIDDLEWARE (JEDEN, NIE WIĘCEJ)
-app.middleware("http")(metrics_middleware)
-
-# ROUTERS
+# routery
+app.include_router(pdf_router)
 app.include_router(users_router)
-
-# METRICS ENDPOINT
-@app.get("/metrics")
-def metrics():
-    return {
-        "requests": request_count,
-        "last_duration_ms": request_duration,
-    }
-
-# ROOT
-@app.get("/")
-def root():
-    return {"message": "Hello Maciej"}

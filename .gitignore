@@ -1,29 +1,38 @@
-# Virtualenv
-venv/
+# ENV 
+.env
+.env.*
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
 .pytest_cache/
 .mypy_cache/
 
-# Logs / env
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Logs
 *.log
-.env
 
 # IDE / OS
 .vscode/
 .idea/
 .DS_Store
+Thumbs.db
 
-# Local data
+# Docker / lokalna baza
 *.db
+*.sqlite3
 
-# Node
-node_modules/
+# Build
+build/
+dist/
+*.egg-info/
 
-# Gunicorn
-*.ctl
-
+# Twoje folderry
 pisma/
 wynik/

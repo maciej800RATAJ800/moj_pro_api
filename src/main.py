@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt
-
-from src.models.user import Token
+from src.schemas.token import Token
 from src.services.auth_service import (
     create_access_token,
     create_refresh_token,
@@ -11,10 +10,13 @@ from src.services.auth_service import (
     ALGORITHM
 )
 
-# 🔴 REDIS
-from src.services.redis_service import redis_client
+from src.routers import users
+from src.database import Base, engine
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="My API")
+app.include_router(users.router)
 
 # =====================================================
 # OAuth2 (dla Swagger Authorize)
@@ -52,49 +54,6 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 @app.get("/")
 def root():
     return {"status": "ok"}
-
-
-# =====================================================
-# CACHE (REDIS TEST)
-# =====================================================
-
-@app.get("/cache")
-def cache_test():
-    count = redis_client.incr("hits")
-    return {"hits": count}
-
-
-# =====================================================
-# USERS (zabezpieczony endpoint)
-# =====================================================
-
-@app.get("/users")
-def users(current_user: str = Depends(get_current_user)):
-    return {
-        "message": "Access granted",
-        "user": current_user
-    }
-
-
-# =====================================================
-# LOGIN (JWT)
-# =====================================================
-
-@app.post("/login", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-
-    # testowe dane
-    if form_data.username != "admin" or form_data.password != "1234":
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    access_token = create_access_token({"sub": form_data.username})
-    refresh_token = create_refresh_token({"sub": form_data.username})
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer"
-    }
 
 
 # =====================================================
